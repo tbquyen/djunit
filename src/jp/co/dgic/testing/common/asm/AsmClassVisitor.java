@@ -69,6 +69,10 @@ public class AsmClassVisitor extends ClassVisitor {
     if ((access & Opcodes.ACC_BRIDGE) > 0) {
       return mv;
     }
+    // is synthetic
+    if ((access & Opcodes.ACC_SYNTHETIC) > 0) {
+      return mv;
+    }
     if (DJUnitUtil.isCoverageMethod(name)) {
       return mv;
     }
