@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Agent-Class: jp.co.dgic.testing.agent.DJunitAgent
+Premain-Class: jp.co.dgic.testing.agent.DJunitAgent
+Can-Redefine-Classes: true
+Can-Retransform-Classes: true
