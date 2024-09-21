@@ -41,6 +41,7 @@ Download the djUnit library and add it to your project’s class path.
     <groupId>org.ow2.asm</groupId>
     <artifactId>asm</artifactId>
     <version>9.7</version>
+    <scope>test</scope>
 </dependency>
 <dependency>
     <groupId>net.bytebuddy</groupId>
@@ -59,14 +60,21 @@ https://www.dgic.co.jp/djunit/usevmo.html
 ## Tips
 Default settings can be overridden by adding VM Arguments:
 
-| VM Arguments              | Value                                       | Default               | Required |
-| :------------------------ | :------------------------------------------ | :-------------------- | :------: |
-| javaagent                 | /jarpath/djunit.jar                         | Dynamic loading       |   No     |
-| djunit.source.dir         | path to your source folder                  | `src`,`src/main/java` |   No     |
-| djunit.coverage.methods   | methods coverage                            | `$jacocoInit`         |   No     |
+| VM Arguments                              | Value                                       | Default               | Required |
+| :---------------------------------------- | :------------------------------------------ | :-------------------- | :------: |
+| javaagent                                 | /jarpath/djunit.jar                         | Dynamic loading       |   No     |
+| jp.co.dgic.virtualmock.usevirtualmock     | use virtual mock                            | `true`                |   No     |
+| jp.co.dgic.virtualmock.include.class      | include class                               | `null`                |   No     |
+| jp.co.dgic.virtualmock.ignore.library     | ignore library                              | `false`               |   No     |
+| jp.co.dgic.virtualmock.notignore.patterns | not ignore patterns                         | `false`               |   No     |
+| jp.co.dgic.virtualmock.coverage.methods   | methods coverage                            | `$jacocoInit`         |   No     |
+| jp.co.dgic.project.source.dir             | path to your class folder                   | from `java.class.path`|   No     |
+| jp.co.dgic.junit.excluded.paths           | excluded paths                              | `null`                |   No     |
 
 ## Release Note
 
+> Version 1.0.1 [2024/09/21]
+- fix: resolve issue with retrieving project source directory in classpath
 > Version 0.8.6 for Eclipse 3.2, 3.3, 3.4, 3.5 Released.[2011/10/17]
 
 ## License
