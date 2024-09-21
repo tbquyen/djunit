@@ -61,7 +61,7 @@ public class AsmConstractorVisitor extends AbstractAsmMethodVisitor {
     mv.visitLdcInsn(makeKey(_className, _methodName));
     mv.visitVarInsn(ALOAD, _maxLocals);
     mv.visitMethodInsn(INVOKESTATIC, MANAGER_CLASS_NAME, "indicateCalledAndGetReturnValue",
-        "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;", itf);
+        "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;", false);
     mv.visitVarInsn(ASTORE, _maxLocals);
 
     // if (Mock value != null) return mock value

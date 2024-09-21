@@ -25,6 +25,7 @@ import jp.co.dgic.testing.common.asm.AsmClassChecker;
 import jp.co.dgic.testing.common.asm.AsmClassReader;
 import jp.co.dgic.testing.common.asm.AsmClassVisitor;
 import jp.co.dgic.testing.common.util.DJUnitUtil;
+import jp.co.dgic.testing.common.util.VirtualMockUtil;
 
 public class DJUnitClassModifier {
   /**
@@ -36,13 +37,13 @@ public class DJUnitClassModifier {
    */
   public byte[] getModifiedClass(String className, byte[] classfileBuffer) {
     DJUnitUtil.trace("[DJUnitClassModifier] load target  [" + className + "]");
-    if (!DJUnitUtil.isUseVirtualMock()) {
+    if (!VirtualMockUtil.isUseVirtualMock()) {
       DJUnitUtil.trace("[DJUnitClassModifier][getModifiedClass]: " + className + " not Use VirtualMock");
       return null;
     }
 
-    if (!DJUnitUtil.isProjectsSource(className)) {
-      DJUnitUtil.trace("[DJUnitClassModifier][getModifiedClass]: " + className + " is not Projects Source");
+    if (!DJUnitUtil.isOwnSource(className)) {
+      DJUnitUtil.trace("[DJUnitClassModifier][getModifiedClass]: " + className + " is not Own Source");
       return null;
     }
 

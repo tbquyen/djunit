@@ -28,10 +28,12 @@ import org.objectweb.asm.Type;
 
 import jp.co.dgic.testing.common.asm.AsmClassChecker;
 import jp.co.dgic.testing.common.util.DJUnitUtil;
+import jp.co.dgic.testing.common.util.VirtualMockUtil;
 
 public abstract class AbstractAsmMethodVisitor extends MethodVisitor implements Opcodes {
-  protected static final String MANAGER_CLASS_NAME = "jp/co/dgic/testing/virtualmock/InternalMockObjectManager";
-  protected static final String NULL_RETURN_VALUE_CLASS_NAME = "jp/co/dgic/testing/virtualmock/NullReturnValue";
+  protected static final String MANAGER_PACKAGE_NAME = "jp/co/dgic/testing/virtualmock/";
+  protected static final String MANAGER_CLASS_NAME = MANAGER_PACKAGE_NAME + "InternalMockObjectManager";
+  protected static final String NULL_RETURN_VALUE_CLASS_NAME = MANAGER_PACKAGE_NAME + "NullReturnValue";
 
   protected String _className;
   protected String _methodName;
@@ -47,7 +49,7 @@ public abstract class AbstractAsmMethodVisitor extends MethodVisitor implements 
 
   public AbstractAsmMethodVisitor(MethodVisitor methodVisitor, String className, String methodName, String desc,
       String signature, boolean isStatic, String[] exceptions, int maxLocals, String[] superClassNames) {
-    super(DJUnitUtil.ASM_API_VERSION, methodVisitor);
+    super(VirtualMockUtil.ASM_API_VERSION, methodVisitor);
     this._className = className;
     this._methodName = methodName;
     this._desc = desc;
@@ -207,16 +209,16 @@ public abstract class AbstractAsmMethodVisitor extends MethodVisitor implements 
   public void createConstructorCall(int opcode, String owner, String name, String desc, boolean itf) {
 
     if (isSuperOrThis(owner)) {
-      DJUnitUtil.debug("[AbstractAsmMethodVisitor][createConstructorCall][REAL METHOD] : itf = " + itf + ", opcode="
-          + opcode + ", " + owner + "::" + name + " " + desc);
+      DJUnitUtil.debug("[AbstractAsmMethodVisitor][createConstructorCall][REAL METHOD]isSuperOrThis : itf = " + itf
+          + ", opcode=" + opcode + ", " + owner + "::" + name + " " + desc);
       // call real method
       mv.visitMethodInsn(opcode, owner, name, desc, itf);
       return;
     }
 
     if (!canNewExprReplace(owner)) {
-      DJUnitUtil.debug("[AbstractAsmMethodVisitor][createConstructorCall][REAL METHOD] : itf = " + itf + ", opcode="
-          + opcode + ", " + owner + "::" + name + " " + desc);
+      DJUnitUtil.debug("[AbstractAsmMethodVisitor][createConstructorCall][REAL METHOD]can'tNewExprReplace : itf = " + itf
+          + ", opcode=" + opcode + ", " + owner + "::" + name + " " + desc);
       // call real method
       mv.visitMethodInsn(opcode, owner, name, desc, itf);
       return;
@@ -329,7 +331,8 @@ public abstract class AbstractAsmMethodVisitor extends MethodVisitor implements 
   }
 
   protected void createReturnValueProcess() {
-    DJUnitUtil.debug("[AbstractAsmMethodVisitor][createReturnValueProcess]: " + this._className + "::" + this._methodName);
+    DJUnitUtil
+        .debug("[AbstractAsmMethodVisitor][createReturnValueProcess]: " + this._className + "::" + this._methodName);
 
     // if (Mock value != null) return mock value
     Label l = new Label();
@@ -396,17 +399,17 @@ public abstract class AbstractAsmMethodVisitor extends MethodVisitor implements 
     mv.visitLabel(l);
   }
 
-  protected void createPrintln(String string) {
-    mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-    mv.visitLdcInsn(string);
-    mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
-  }
-
-  protected void createPrintlnMaxLocalsVariable() {
-    mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-    mv.visitVarInsn(ALOAD, _maxLocals);
-    mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/Object;)V", false);
-  }
+//  protected void createPrintln(String string) {
+//    mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+//    mv.visitLdcInsn(string);
+//    mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
+//  }
+//
+//  protected void createPrintlnMaxLocalsVariable() {
+//    mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+//    mv.visitVarInsn(ALOAD, _maxLocals);
+//    mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/Object;)V", false);
+//  }
 
   protected void createThrowExceptions(String[] exceptions) {
     if (exceptions == null)
@@ -453,8 +456,8 @@ public abstract class AbstractAsmMethodVisitor extends MethodVisitor implements 
         mv.visitTypeInsn(NEW, wrapperType);
         mv.visitInsn(DUP);
         mv.visitVarInsn(getLoadOpcodeByType(argTypes[i]), varIndex);
-        mv.visitMethodInsn(INVOKESPECIAL, wrapperType, DJUnitUtil.CONSTRUCTOR_METHOD_NAME, "(" + argTypes[i] + ")V",
-            false);
+        mv.visitMethodInsn(INVOKESPECIAL, wrapperType, VirtualMockUtil.CONSTRUCTOR_METHOD_NAME,
+            "(" + argTypes[i] + ")V", false);
         if (isTwoEntryType(argTypes[i])) {
           varIndex++;
         }
@@ -677,7 +680,7 @@ public abstract class AbstractAsmMethodVisitor extends MethodVisitor implements 
   }
 
   protected boolean isConstructor(String methodName) {
-    return DJUnitUtil.CONSTRUCTOR_METHOD_NAME.equals(methodName);
+    return VirtualMockUtil.CONSTRUCTOR_METHOD_NAME.equals(methodName);
   }
 
   protected String getToValueMethodName(Type type) {
@@ -725,16 +728,14 @@ public abstract class AbstractAsmMethodVisitor extends MethodVisitor implements 
   }
 
   protected boolean canReplace(String className, boolean isInterface) {
-    String name = DJUnitUtil.getQualifiedName(className);
+    String name = className.replace('/', '.');
 
     if (DJUnitUtil.isExcluded(name)) {
       return false;
     }
-
     if (!isInterface && isOwnSource(name)) {
       return false;
     }
-
     if (isIgnore(name)) {
       return false;
     }
@@ -743,7 +744,7 @@ public abstract class AbstractAsmMethodVisitor extends MethodVisitor implements 
   }
 
   protected boolean canNewExprReplace(String className) {
-    String name = DJUnitUtil.getQualifiedName(className);
+    String name = className.replace('/', '.');
 
     if (DJUnitUtil.isExcluded(name)) {
       return false;
@@ -759,7 +760,13 @@ public abstract class AbstractAsmMethodVisitor extends MethodVisitor implements 
   }
 
   private boolean isIgnore(String className) {
-    return DJUnitUtil.isIgnore(className);
+    if (!isIgnoreLibrary())
+      return false;
+    return !VirtualMockUtil.isNotIgnore(className);
+  }
+
+  private boolean isIgnoreLibrary() {
+    return VirtualMockUtil.isIgnoreLibrary();
   }
 
   private boolean isInterface(String className) {
@@ -770,17 +777,7 @@ public abstract class AbstractAsmMethodVisitor extends MethodVisitor implements 
   }
 
   protected boolean isOwnSource(String className) {
-    String name = DJUnitUtil.getQualifiedName(className);
-
-    if (DJUnitUtil.getIncludeValue() != null && DJUnitUtil.isInclude(name)) {
-      return true;
-    }
-
-    if (DJUnitUtil.isProjectsSource(name)) {
-      return true;
-    }
-
-    return false;
+    return DJUnitUtil.isOwnSource(className);
   }
 
   protected String makeKey(String className, String methodName) {

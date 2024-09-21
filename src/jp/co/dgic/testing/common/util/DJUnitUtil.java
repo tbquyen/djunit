@@ -22,195 +22,139 @@
 package jp.co.dgic.testing.common.util;
 
 import java.io.File;
-
-import org.objectweb.asm.Opcodes;
+import java.util.StringTokenizer;
 
 public class DJUnitUtil {
+  public static final String PROJECTS_SOURCE_DIR_KEY = "jp.co.dgic.project.source.dir";
+
+  public static final String JUNIT_EXCLUDES_PATHS_KEY = "jp.co.dgic.junit.excluded.paths";
+
   public static final String LOG_LEVEL_KEY = "djunit.log.level";
-  public static final String PROJECTS_SOURCE_DIR_KEY = "djunit.source.dir";
-  public static final String JUNIT_EXCLUDES_PATHS_KEY = "djunit.excluded.paths";
-  public static final String VIRTUALMOCK_INCLUDE_CLASS_KEY = "djunit.include.class";
-  public static final String VIRTUALMOCK_NOTIGNORE_PATTERNS_KEY = "djunit.notignore.patterns";
-  public static final String VIRTUALMOCK_COVERAGE_METHODS_KEY = "djunit.coverage.methods";
 
-  public static final int ASM_API_VERSION = Opcodes.ASM9;
-  public static final String CONSTRUCTOR_METHOD_NAME = "<init>";
-  public static final String[] DJUNIT_EXCLUSIONS = { "org.objectweb.asm.", "jp.co.dgic.testing.", "org.eclipse." };
-  public static final String[] JUNIT_EXCLUSIONS = { "junit.", "org.junit.", "org.jacoco." };
-
-  public static final String LOG_LEVEL = System.getProperty(LOG_LEVEL_KEY);
   public static final String SEPARATOR = System.getProperty("path.separator");
+  public static final String LOG_LEVEL = System.getProperty(LOG_LEVEL_KEY);
 
-  public static String[] sourceDirectries = { "src", "src/main/java" };
-  private static String[] classExclusions = {};
-  public static String[] classInclude = null;
-  private static String[] notIgnorePatterns = null;
-  public static String[] coverageMethods = { "$jacocoInit" };
+  private static String[] sourceDirectries;
+  private static String[] classExclusions;
+
+  /** default excluded paths */
+  private static String[] DEFAULT_EXCLUSIONS = { "org.objectweb.asm.", "jp.co.dgic.testing.", "org.eclipse.", "junit.",
+      "org.junit.", "org.jacoco." };
 
   static {
     String directriesValue = System.getProperty(PROJECTS_SOURCE_DIR_KEY);
     if (directriesValue != null) {
       debug("Projects source dir: " + directriesValue);
-      sourceDirectries = directriesValue.split(SEPARATOR);
+      sourceDirectries = DJUnitUtil.splitValue(directriesValue);
+    } else {
+      String classpath = System.getProperty("java.class.path");
+      debug("Projects source dir: " + classpath);
+      sourceDirectries = DJUnitUtil.splitValue(System.getProperty("java.class.path"));
     }
 
     String paths = System.getProperty(JUNIT_EXCLUDES_PATHS_KEY);
     if (paths != null) {
       debug("Class exclusions: " + paths);
-      classExclusions = paths.split(SEPARATOR);
+      classExclusions = DJUnitUtil.splitValue(paths);
     }
-
-    String includeValue = System.getProperty(VIRTUALMOCK_INCLUDE_CLASS_KEY);
-    if (includeValue != null) {
-      debug("Class include: " + includeValue);
-      classInclude = includeValue.split(SEPARATOR);
-    }
-
-    String patterns = System.getProperty(VIRTUALMOCK_NOTIGNORE_PATTERNS_KEY);
-    if (patterns != null) {
-      debug("Not ignore patterns: " + patterns);
-      notIgnorePatterns = patterns.split(SEPARATOR);
-    }
-
-    String coverageMethod = System.getProperty(VIRTUALMOCK_COVERAGE_METHODS_KEY);
-    if (coverageMethod != null) {
-      debug("Coverage methods: " + coverageMethod);
-      coverageMethods = coverageMethod.split(SEPARATOR);
-    }
-  }
-
-  public static boolean isUseVirtualMock() {
-    return true;
-  }
-
-  public static boolean isExcluded(String className) {
-    className = DJUnitUtil.getQualifiedName(className);
-
-    for (String packageName : DJUNIT_EXCLUSIONS) {
-      if (className.startsWith(packageName)) {
-        return true;
-      }
-    }
-
-    for (String packageName : JUNIT_EXCLUSIONS) {
-      if (className.startsWith(packageName)) {
-        return true;
-      }
-    }
-
-    for (String excluded : classExclusions) {
-      if (className.startsWith(removeAsterisk(excluded))) {
-        return true;
-      }
-    }
-
-    return false;
   }
 
   public static boolean isProjectsSource(String className) {
-    className = DJUnitUtil.getClassPath(className);
+    String[] dirs = sourceDirectries;
+
+    if (dirs == null)
+      return false;
 
     String pathString = null;
     File f = null;
-    for (String dir : sourceDirectries) {
-      pathString = dir + "/" + className + ".java";
+    for (int idx = 0; idx < dirs.length; idx++) {
+      pathString = dirs[idx] + "/" + toClassName(className) + ".class";
       f = new File(pathString);
       if (f.exists()) {
         return true;
       }
     }
-
     return false;
   }
 
-  public static boolean isCoverageMethod(String methodName) {
-    for (String method : coverageMethods) {
-      if (methodName.equalsIgnoreCase(method)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  public static boolean isIgnore(String className) {
-    if (notIgnorePatterns == null || className == null) {
-      return false;
-    }
-
-    for (String pattern : notIgnorePatterns) {
-      if (className.matches(pattern)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  public static boolean isInclude(String className) {
-    if (classInclude == null) {
-      return true;
-    }
-
-    className = getQualifiedName(className);
-
-    for (String method : classInclude) {
-      if (className.equals(method)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  public static Object getIncludeValue() {
-    return classInclude;
-  }
-
-  /**
-   * Method to get the class path from the class name
-   */
-  private static String getClassPath(String className) {
-    if (className == null) {
-      return null;
-    }
-
+  private static String toClassName(String className) {
     String name = className.replace('.', '/');
-    if (name.indexOf('$') < 0) {
+    if (name.indexOf('$') < 0)
       return name;
-    }
-
-    String simpleName = DJUnitUtil.getSimpleName(name);
-    if (simpleName.indexOf('$') < 0) {
+    String simpleName = getSimpleName(name);
+    if (simpleName.indexOf('$') < 0)
       return name;
-    }
-
     int lastIndex = name.indexOf('$');
     return name.substring(0, lastIndex);
   }
 
-  /**
-   * Method to get the simple name of the class from the class name
-   */
   private static String getSimpleName(String className) {
     int lastIndex = className.lastIndexOf('.');
     return className.substring(lastIndex + 1);
   }
 
-  private static String removeAsterisk(String pathString) {
-    if (pathString == null) return null;
-    if (!pathString.endsWith("*")) return pathString;
-    return pathString.substring(0, pathString.length() - 1);
-  }
-
-  /**
-   * Converts a class file path to a fully qualified class name.
-   */
-  public static String getQualifiedName(String classPathName) {
-    if (classPathName == null) {
+  public static String[] splitValue(String value) {
+    if (value == null) {
       return null;
     }
-    return classPathName.replace("/", ".");
+
+    StringTokenizer st = new StringTokenizer(value, SEPARATOR);
+    String[] values = new String[st.countTokens()];
+    for (int index = 0; index < values.length; index++) {
+      values[index] = st.nextToken();
+    }
+    return values;
+  }
+
+  public static boolean isDefaultExcludedPath(String className) {
+    className = className.replace("/", ".");
+    String[] defaultExcluded = DEFAULT_EXCLUSIONS;
+    for (int idx = 0; idx < defaultExcluded.length; idx++) {
+      if (className.startsWith(defaultExcluded[idx]))
+        return true;
+    }
+    return false;
+  }
+
+  public static boolean isOwnSource(String className) {
+    String name = className.replace('/', '.');
+
+    if (VirtualMockUtil.getIncludeValue() != null && VirtualMockUtil.isInclude(name)) {
+      return true;
+    }
+    if (DJUnitUtil.isProjectsSource(name)) {
+      return true;
+    }
+
+    return false;
+  }
+  
+  public static boolean isExcluded(String className) {
+    if (isDefaultExcludedPath(className))
+      return true;
+    return isExcludedForClassloader(className);
+  }
+
+  public static boolean isExcludedForClassloader(String className) {
+    String[] excluded = classExclusions;
+    if (excluded == null) {
+      return false;
+    }
+
+    className = className.replace("/", ".");
+    for (int idx = 0; idx < excluded.length; idx++) {
+      if (className.startsWith(removeAsterisk(excluded[idx])))
+        return true;
+    }
+    return false;
+  }
+
+  private static String removeAsterisk(String pathString) {
+    if (pathString == null)
+      return null;
+    if (!pathString.endsWith("*"))
+      return pathString;
+    return pathString.substring(0, pathString.length() - 1);
   }
 
   public static void debug(Object message) {

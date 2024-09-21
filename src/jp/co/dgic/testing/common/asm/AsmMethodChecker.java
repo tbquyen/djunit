@@ -25,6 +25,7 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.MethodVisitor;
 
 import jp.co.dgic.testing.common.util.DJUnitUtil;
+import jp.co.dgic.testing.common.util.VirtualMockUtil;
 
 public class AsmMethodChecker extends MethodVisitor {
   private static final String JUNIT_TEST_ANNOTATION = "org/junit/";
@@ -34,7 +35,7 @@ public class AsmMethodChecker extends MethodVisitor {
   private String desc;
 
   public AsmMethodChecker(AsmClassChecker checker, String name, String desc) {
-    super(DJUnitUtil.ASM_API_VERSION);
+    super(VirtualMockUtil.ASM_API_VERSION);
     this.checker = checker;
     this.name = name;
     this.desc = desc;

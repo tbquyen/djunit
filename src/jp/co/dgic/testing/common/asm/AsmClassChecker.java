@@ -32,39 +32,42 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 import jp.co.dgic.testing.common.util.DJUnitUtil;
+import jp.co.dgic.testing.common.util.VirtualMockUtil;
 
 public class AsmClassChecker extends ClassVisitor {
-  public static final String JUNIT_TEST_INTERFACENAME = "junit.framework.Test";
+  private static final String JUNIT_TEST_INTERFACENAME = "junit.framework.Test";
 
-  // org.junit.runner, org.junit.jupiter.api.extension;
-  public static final String JUNIT_TESTRUNNER_ANNOTATION = "org/junit/";
+  private static final String JUNIT_TESTRUNNER_ANNOTATION = "org/junit/";
 
-  /** A map to store instances of AsmClassChecker for different classes. */
-  private static final HashMap<String, AsmClassChecker> CLASS_CHECKERS = new HashMap<String, AsmClassChecker>();
+  private String _className;
+  private String _superClassName;
+  private String[] _interfaces;
+
+  private HashMap<String, Integer> _maxLocals = new HashMap<>();
+  private HashMap<String, String[]> _exceptionsMap = new HashMap<>();
+  private Set<String> _methodNames = new HashSet<>();
 
   private boolean isInterface = false;
   private boolean isAnnotation = false;
   private boolean isEnum = false;
   private boolean hasJUnitTestAnnotation = false;
-  private String[] interfaces;
-  private String className;
-  private String superClassName;
-  private AsmClassChecker superClassChecker;
-  private HashMap<String, String[]> exceptionsMap = new HashMap<String, String[]>();
-  private Set<String> methodNames = new HashSet<String>();
-  private HashMap<String, Integer> maxLocals = new HashMap<String, Integer>();
+
+  private AsmClassChecker _superClassChecker;
+
+  private static final HashMap<String, AsmClassChecker> _classCheckers = new HashMap<>();
 
   private AsmClassChecker() {
-    super(DJUnitUtil.ASM_API_VERSION);
+    super(VirtualMockUtil.ASM_API_VERSION);
   }
 
   /**
-   * Creates a new instance of AsmClassChecker for a class being loaded by a Java agent.
+   * Creates a new instance of AsmClassChecker for a class being loaded by a Java
+   * agent.
    */
   public static AsmClassChecker createInstance(String className, AsmClassReader reader) {
     AsmClassChecker classChecker = new AsmClassChecker();
     reader.accept(classChecker);
-    CLASS_CHECKERS.put(className, classChecker);
+    _classCheckers.put(className, classChecker);
     return classChecker;
   }
 
@@ -72,7 +75,7 @@ public class AsmClassChecker extends ClassVisitor {
    * Gets an instance of AsmClassChecker to retrieve class information.
    */
   public static AsmClassChecker getInstance(String className, AsmClassReader reader) {
-    AsmClassChecker classChecker = CLASS_CHECKERS.get(className);
+    AsmClassChecker classChecker = _classCheckers.get(className);
     if (classChecker == null) {
       if (reader == null) {
         try {
@@ -84,60 +87,61 @@ public class AsmClassChecker extends ClassVisitor {
 
       classChecker = new AsmClassChecker();
       reader.accept(classChecker);
-      CLASS_CHECKERS.put(className, classChecker);
+      _classCheckers.put(className, classChecker);
     }
 
     return classChecker;
   }
 
-  @Override
-  public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-    this.className = DJUnitUtil.getQualifiedName(name);
-    this.superClassName = superName;
-    this.interfaces = interfaces;
+  public String getClassName() {
+    return _className;
+  }
 
-    isInterface = (access & Opcodes.ACC_INTERFACE) > 0;
-    isAnnotation = (access & Opcodes.ACC_ANNOTATION) > 0;
-    isEnum = (access & Opcodes.ACC_ENUM) > 0;
+  public String getSuperClassName() {
+    return _superClassName;
+  }
 
-    if (isInterface && interfaces != null && interfaces.length > 0) {
-      superClassName = interfaces[0];
+  public AsmClassChecker getSuperClassChecker() {
+    return _superClassChecker;
+  }
+
+  public void setSuperClassChecker(AsmClassChecker superClassChecker) {
+    _superClassChecker = superClassChecker;
+  }
+
+  public String[] getInterfaces() {
+    return _interfaces;
+  }
+
+  public String[] getSuperClassNames() {
+    Set<String> names = getAllSuperClassNames();
+    return names.toArray(new String[names.size()]);
+  }
+
+  public Set<String> getAllSuperClassNames() {
+    Set<String> names = null;
+    if (_superClassChecker == null) {
+      names = new HashSet<>();
+      if (_superClassName != null) {
+        names.add(_superClassName);
+      }
+    } else {
+      names = _superClassChecker.getAllSuperClassNames();
     }
 
-    if (superClassName != null) {
-      superClassName = DJUnitUtil.getQualifiedName(superClassName);
-    }
+    names.add(_className);
 
-    DJUnitUtil.debug("[AsmClassChecker][visit]: " + className + " is " + (isInterface ? "<INTERFACE>" : "<CLASS>"));
-
-    collectSuperClassInfo();
+    return names;
   }
 
-  @Override
-  public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-    String key = name + descriptor;
-    putExceptions(key, exceptions);
-    putMethodName(key);
-    return new AsmMethodChecker(this, name, descriptor);
-  }
+  public boolean isTestCase() {
+    if (hasJUnitTestAnnotation)
+      return true;
+    boolean isTestCase = hasTestInterface(_interfaces);
+    if (isTestCase || _superClassChecker == null)
+      return isTestCase;
+    return _superClassChecker.isTestCase();
 
-  @Override
-  public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-    DJUnitUtil.trace("[AsmClassChecker][visitAnnotation] : " + className + ", " + descriptor);
-
-    if (descriptor != null && descriptor.indexOf(JUNIT_TESTRUNNER_ANNOTATION) >= 0) {
-      this.setJUnitTestAnnotation(true);
-    }
-
-    return super.visitAnnotation(descriptor, visible);
-  }
-
-  public void setJUnitTestAnnotation(boolean hasAnnotation) {
-    hasJUnitTestAnnotation = hasAnnotation;
-  }
-
-  public boolean isEnum() {
-    return isEnum;
   }
 
   public boolean isInterface() {
@@ -148,79 +152,36 @@ public class AsmClassChecker extends ClassVisitor {
     return isAnnotation;
   }
 
-  public boolean isTestCase() {
-    if (hasJUnitTestAnnotation) {
-      return true;
-    }
-
-    boolean isTestCase = hasTestInterface(interfaces);
-    if (isTestCase || superClassChecker == null) {
-      return isTestCase;
-    }
-
-    return superClassChecker.isTestCase();
+  public boolean isEnum() {
+    return isEnum;
   }
 
-  private boolean hasTestInterface(String[] interfaces) {
-    if (interfaces == null)
-      return false;
-    for (int i = 0; i < interfaces.length; i++) {
-      if (JUNIT_TEST_INTERFACENAME.equals(DJUnitUtil.getQualifiedName(interfaces[i])))
-        return true;
-    }
-    return false;
+  public void setJUnitTestAnnotation(boolean hasAnnotation) {
+    hasJUnitTestAnnotation = hasAnnotation;
   }
 
-  private void collectSuperClassInfo() {
-    if ("java.lang.Object".equals(className)) {
-      return;
-    }
+  public void putMaxLocals(String methodName, String desc, int maxLocal) {
+    _maxLocals.put(methodName + desc, maxLocal);
+  }
 
-    if (superClassName == null) {
-      return;
-    }
-
+  public int getMaxLocals(String methodName, String desc) {
     try {
-      AsmClassReader reader = AsmClassReader.getInstance(superClassName, null);
-      superClassChecker = AsmClassChecker.getInstance(superClassName, reader);
-      DJUnitUtil.trace("[AsmClassChecker][collectSuperClassInfo] : " + reader.getClassName());
-    } catch (IOException e) {
-      e.printStackTrace();
+      Integer max = (Integer) _maxLocals.get(methodName + desc);
+      if (max == null)
+        return -1;
+      return max.intValue();
+    } catch (Throwable t) {
+      // continue
     }
+    return -1;
   }
 
-  public String[] getSuperClassNames() {
-    Set<String> names = getAllSuperClassNames();
-    return names.toArray(new String[names.size()]);
+  public void putExceptions(String methodNameAndDesc, String[] exceptions) {
+    if (exceptions == null || exceptions.length == 0)
+      return;
+    _exceptionsMap.put(methodNameAndDesc, exceptions);
   }
 
-  private Set<String> getAllSuperClassNames() {
-    Set<String> names = null;
-    if (superClassChecker == null) {
-      names = new HashSet<String>();
-      if (superClassName != null) {
-        names.add(superClassName);
-      }
-    } else {
-      names = superClassChecker.getAllSuperClassNames();
-    }
-
-    names.add(className);
-
-    return names;
-  }
-  
-  public String getOwnerName(String methodNameAndDesc, String oldOwner) {
-    if (methodNames.contains(methodNameAndDesc)) return className;
-    if (superClassChecker == null) return oldOwner;
-    
-    // version 0.8.4
-    // If this class is not an own source, stop searching for a information of superclass.
-    if (!isOwnSource(className)) return className;
-
-    return superClassChecker.getOwnerName(methodNameAndDesc, oldOwner);
-  }
-  
   public String[] getExceptions(String methodName, String desc) {
     String key = methodName + desc;
     String[] exceptions = getExceptions(key);
@@ -229,59 +190,92 @@ public class AsmClassChecker extends ClassVisitor {
     return exceptions;
   }
 
-  private String[] getExceptions(String methodNameAndDesc) {
-    if (exceptionsMap.containsKey(methodNameAndDesc)) {
-      return exceptionsMap.get(methodNameAndDesc);
+  public String[] getExceptions(String methodNameAndDesc) {
+    if (_exceptionsMap.containsKey(methodNameAndDesc)) {
+      return (String[]) _exceptionsMap.get(methodNameAndDesc);
     }
-
-    if (superClassChecker == null)
+    if (_superClassChecker == null)
       return null;
 
-    return superClassChecker.getExceptions(methodNameAndDesc);
+    return _superClassChecker.getExceptions(methodNameAndDesc);
   }
 
-  public int getMaxLocals(String methodName, String descriptor) {
-    try {
-      Integer max = maxLocals.get(methodName + descriptor);
-      if (max == null) {
-        return -1;
-      }
+  public void putMethodName(String methodNameAndDesc) {
+    _methodNames.add(methodNameAndDesc);
+  }
 
-      return max.intValue();
-    } catch (Throwable t) {
-      // continue
+  public String getOwnerName(String methodNameAndDesc, String oldOwner) {
+    if (_methodNames.contains(methodNameAndDesc))
+      return _className;
+    if (_superClassChecker == null)
+      return oldOwner;
+
+    // If this class is not an own source, stop searching for a information of
+    // superclass.
+    if (!isOwnSource(_className))
+      return _className;
+
+    return _superClassChecker.getOwnerName(methodNameAndDesc, oldOwner);
+  }
+
+  @Override
+  public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
+    String key = name + desc;
+    putExceptions(key, exceptions);
+    putMethodName(key);
+    return new AsmMethodChecker(this, name, desc);
+  }
+
+  @Override
+  public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+    _className = name.replace('/', '.');
+    _superClassName = superName;
+    _interfaces = interfaces;
+
+    isInterface = (access & Opcodes.ACC_INTERFACE) > 0;
+    isAnnotation = (access & Opcodes.ACC_ANNOTATION) > 0;
+    isEnum = (access & Opcodes.ACC_ENUM) > 0;
+
+    if (isInterface && interfaces != null && interfaces.length > 0) {
+      _superClassName = interfaces[0];
+    }
+    if (_superClassName != null) {
+      _superClassName = _superClassName.replace('/', '.');
     }
 
-    return -1;
+    DJUnitUtil.debug("[AsmClassChecker] " + _className + ".class is " + (isInterface ? "<INTERFACE>" : "<CLASS>"));
+
+    collectSuperClassInfo();
   }
 
-  public void putMaxLocals(String methodName, String desc, int maxLocal) {
-    maxLocals.put(methodName + desc, Integer.valueOf(maxLocal));
+  @Override
+  public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+    if (desc != null && desc.indexOf(JUNIT_TESTRUNNER_ANNOTATION) >= 0) {
+      this.setJUnitTestAnnotation(true);
+    }
+    return super.visitAnnotation(desc, visible);
   }
 
-  private void putExceptions(String methodNameAndDesc, String[] exceptions) {
-    if (exceptions == null || exceptions.length == 0) {
+  protected void collectSuperClassInfo() {
+    if ("java.lang.Object".equals(_className))
       return;
-    }
+    if (getSuperClassName() == null)
+      return;
 
-    exceptionsMap.put(methodNameAndDesc, exceptions);
+    this.setSuperClassChecker(AsmClassChecker.getInstance(getSuperClassName(), null));
   }
 
-  private void putMethodName(String methodNameAndDesc) {
-    methodNames.add(methodNameAndDesc);
-  }
-
-  private boolean isOwnSource(String className) {
-    String name = DJUnitUtil.getQualifiedName(className);
-
-    if (DJUnitUtil.getIncludeValue() != null && DJUnitUtil.isInclude(name)) {
-      return true;
+  protected boolean hasTestInterface(String[] interfaces) {
+    if (interfaces == null)
+      return false;
+    for (int i = 0; i < interfaces.length; i++) {
+      if (JUNIT_TEST_INTERFACENAME.equals(interfaces[i].replace('/', '.')))
+        return true;
     }
-
-    if (DJUnitUtil.isProjectsSource(name)) {
-      return true;
-    }
-
     return false;
+  }
+
+  protected boolean isOwnSource(String className) {
+    return DJUnitUtil.isOwnSource(className);
   }
 }

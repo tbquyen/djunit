@@ -26,6 +26,7 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 import jp.co.dgic.testing.common.util.DJUnitUtil;
+import jp.co.dgic.testing.common.util.VirtualMockUtil;
 import jp.co.dgic.testing.virtualmock.asm.AsmConstractorVisitor;
 import jp.co.dgic.testing.virtualmock.asm.AsmMethodVisitor;
 
@@ -35,7 +36,7 @@ public class AsmClassVisitor extends ClassVisitor {
   protected AsmClassWriter classWriter;
 
   public AsmClassVisitor(String className, AsmClassReader reader) {
-    super(DJUnitUtil.ASM_API_VERSION);
+    super(VirtualMockUtil.ASM_API_VERSION);
     checker = AsmClassChecker.getInstance(className, reader);
     classWriter = new AsmClassWriter();
     cv = this.classWriter;
@@ -46,7 +47,7 @@ public class AsmClassVisitor extends ClassVisitor {
   public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
     DJUnitUtil.debug("[AsmClassVisitor][visit][modify-class=" + name + "][signature=" + signature + "]");
     DJUnitUtil.debug("[AsmClassVisitor][visit][class-version=" + version + "]");
-    this.className = DJUnitUtil.getQualifiedName(name);
+    this.className = name.replace('/', '.');
     super.visit(version, access, name, signature, superName, interfaces);
   }
 
@@ -73,7 +74,7 @@ public class AsmClassVisitor extends ClassVisitor {
     if ((access & Opcodes.ACC_SYNTHETIC) > 0) {
       return mv;
     }
-    if (DJUnitUtil.isCoverageMethod(name)) {
+    if (VirtualMockUtil.isCoverageMethod(name)) {
       return mv;
     }
 
@@ -85,7 +86,7 @@ public class AsmClassVisitor extends ClassVisitor {
   private MethodVisitor createMethodVisitor(MethodVisitor mv, String name, String desc, String signature,
       boolean isStatic, String[] exceptions, int maxLocals) {
 
-    if (DJUnitUtil.CONSTRUCTOR_METHOD_NAME.equalsIgnoreCase(name)) {
+    if (VirtualMockUtil.CONSTRUCTOR_METHOD_NAME.equalsIgnoreCase(name)) {
       DJUnitUtil
       .debug("[AsmClassVisitor][createMethodVisitor] : AsmConstractorVisitor(" + className + "::" + name + ")");
       return new AsmConstractorVisitor(mv, this.className, name, desc, signature, exceptions, maxLocals,
