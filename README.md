@@ -55,7 +55,7 @@ Download the djUnit library and add it to your project’s class path.
 djUnit uses ASM and BCEL, and has an added original extension.<br>
 If Virtual Mock Objects is used, it enables creation of Mock Object at low cost, and it can also write simple tests.
 
-You can find more detailed information at the following link: [wiki](/wiki)
+You can find more detailed information on this Wiki.
 
 ## Tips
 Default settings can be overridden by adding VM Arguments:
