@@ -49,7 +49,7 @@ public class DJUnitUtil {
     } else {
       String classpath = System.getProperty("java.class.path");
       debug("Projects source dir: " + classpath);
-      sourceDirectries = DJUnitUtil.splitValue(System.getProperty("java.class.path"));
+      sourceDirectries = DJUnitUtil.splitValue(classpath);
     }
 
     String paths = System.getProperty(JUNIT_EXCLUDES_PATHS_KEY);
