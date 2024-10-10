@@ -21,11 +21,12 @@
  */
 package jp.co.dgic.testing.framework;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 
 import jp.co.dgic.testing.virtualmock.MockObjectManager;
 
-public abstract class DJUnitTestCase {
+public abstract class DJUnitTestCase extends Assertions {
   @BeforeEach
   protected void setUp() throws Exception {
     MockObjectManager.initialize();

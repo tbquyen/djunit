@@ -25,11 +25,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.nio.file.Paths;
 
-import net.bytebuddy.agent.ByteBuddyAgent;
-import net.bytebuddy.agent.ByteBuddyAgent.ProcessProvider.ForCurrentVm;
+import jp.co.dgic.testing.common.util.DJUnitUtil;
 
 public class MockObjectManager {
   static {
@@ -37,18 +38,16 @@ public class MockObjectManager {
       URL jarUrl = MockObjectManager.class.getProtectionDomain().getCodeSource().getLocation();
       File jar = Paths.get(jarUrl.toURI()).toFile();
 
-      /*
-       * Class<?> byteBuddyAgentClass = Class.forName("net.bytebuddy.agent.ByteBuddyAgent"); Class<?>
-       * processProviderClass = Class.forName("net.bytebuddy.agent.ByteBuddyAgent$ProcessProvider"); Class<?>
-       * forCurrentVmClass = Class.forName("net.bytebuddy.agent.ByteBuddyAgent$ProcessProvider$ForCurrentVm");
-       * 
-       * Method modifyMethod = byteBuddyAgentClass.getMethod("attach", File.class, processProviderClass); Field INSTANCE
-       * = forCurrentVmClass.getField("INSTANCE"); modifyMethod.invoke(byteBuddyAgentClass, new File(jarPath),
-       * INSTANCE.get(null));
-       */
-      ByteBuddyAgent.attach(jar, ForCurrentVm.INSTANCE);
+      /** ByteBuddyAgent.attach(jar, ForCurrentVm.INSTANCE); */
+      Class<?> byteBuddyAgentClass = Class.forName("net.bytebuddy.agent.ByteBuddyAgent");
+      Class<?> processProviderClass = Class.forName("net.bytebuddy.agent.ByteBuddyAgent$ProcessProvider");
+      Class<?> forCurrentVmClass = Class.forName("net.bytebuddy.agent.ByteBuddyAgent$ProcessProvider$ForCurrentVm");
+
+      Method modifyMethod = byteBuddyAgentClass.getMethod("attach", File.class, processProviderClass);
+      Field INSTANCE = forCurrentVmClass.getField("INSTANCE");
+      modifyMethod.invoke(byteBuddyAgentClass, jar, INSTANCE.get(null));
     } catch (Exception e) {
-      e.printStackTrace();
+      DJUnitUtil.debug(e);
     }
   }
 
