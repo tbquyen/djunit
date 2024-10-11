@@ -48,6 +48,7 @@ Download the djUnit library and add it to your project’s class path.
     <artifactId>byte-buddy-agent</artifactId>
     <version>1.15.1</version>
     <scope>test</scope>
+    <optional>true</optional>
 </dependency>
 ```
 
