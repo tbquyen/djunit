@@ -13,6 +13,7 @@ djUnit currently supports the following ASM 9.x versions:
 
 | Java version | ASM version |
 | :----------- | -----------: |
+| 24 | 9.7.1 |
 | 23 | 9.7 |
 | 22 | 9.6 |
 | 21 | 9.5 |
